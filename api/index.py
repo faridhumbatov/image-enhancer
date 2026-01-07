@@ -6,9 +6,11 @@ import os
 
 app = FastAPI()
 
+# CORS icazələri (Front-end-in API-ya daxil olması üçün mütləqdir)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # Real layihədə bura öz saytınızın adını yazın
+    allow_origins=["*"], 
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -16,18 +18,16 @@ app.add_middleware(
 class EnhanceRequest(BaseModel):
     image_url: str
 
-@app.get("/")
-def home():
-    return {"message": "Image Enhancer API is running!"}
-
 @app.post("/api/enhance")
 def enhance_image(request: EnhanceRequest):
-    # API Tokeni yoxlayırıq
-    if not os.environ.get("REPLICATE_API_TOKEN"):
-        raise HTTPException(status_code=500, detail="API Token təyin edilməyib!")
+    # 1. API Token yoxlanışı
+    api_token = os.environ.get("REPLICATE_API_TOKEN")
+    if not api_token:
+        return {"error": "REPLICATE_API_TOKEN tapılmadı. Vercel Settings-də quraşdırın."}
 
     try:
-        # Replicate-də Real-ESRGAN modelini işə salırıq
+        # 2. Replicate modelini çağırırıq
+        # Diqqət: Realsrgan bəzən gecikə bilər, model versiyasının doğruluğuna baxın
         output = replicate.run(
             "xinntao/realsrgan:1b97abc4b3a1a37c37c2a71d798e1e7047f6368d9c669176378e9f2b801a6b0c",
             input={
@@ -37,5 +37,8 @@ def enhance_image(request: EnhanceRequest):
             }
         )
         return {"enhanced_image_url": output}
+    
     except Exception as e:
+        # Xətanı terminalda görmək üçün
+        print(f"Xəta baş verdi: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
