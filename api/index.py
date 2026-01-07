@@ -2,9 +2,11 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import random
+import urllib.parse
 
 app = FastAPI()
 
+# Bütün saytlardan gələn sorğulara icazə veririk (CORS)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -17,19 +19,23 @@ class GenerateRequest(BaseModel):
 
 @app.get("/")
 def home():
-    return {"status": "Free Unlimited Generator Active"}
+    return {"status": "Unlimited Free Generator Running"}
 
 @app.post("/api/generate")
 def generate_image(request: GenerateRequest):
     try:
-        # Pollinations AI heç bir token tələb etmir.
-        # Sadəcə URL-ə prompt-u göndəririk.
-        seed = random.randint(1, 999999) # Hər dəfə fərqli nəticə üçün
-        prompt_encoded = request.prompt.replace(" ", "%20")
+        # 1. Prompt-u URL üçün təmizləyirik (boşluqları %20 edirik)
+        clean_prompt = urllib.parse.quote(request.prompt)
         
-        # Flux modelini seçirik
-        image_url = f"https://pollinations.ai/p/{prompt_encoded}?width=1024&height=768&seed={seed}&model=flux"
+        # 2. Təsadüfi bir "seed" yaradırıq ki, eyni söz yazanda hər dəfə fərqli şəkil çıxsın
+        seed = random.randint(1, 1000000)
+        
+        # 3. Pollinations API linkini formalaşdırırıq (Flux modeli ilə)
+        # Bu linkə daxil olan kimi şəkil yaranır
+        image_url = f"https://pollinations.ai/p/{clean_prompt}?width=1280&height=720&seed={seed}&model=flux&nologo=true"
         
         return {"generated_image_url": image_url}
+
     except Exception as e:
+        print(f"Xəta: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
