@@ -18,7 +18,7 @@ class EnhanceRequest(BaseModel):
 
 @app.get("/")
 def home():
-    return {"status": "Active"}
+    return {"status": "Server running with Dynamic Versioning"}
 
 @app.post("/api/enhance")
 def enhance_image(request: EnhanceRequest):
@@ -27,22 +27,31 @@ def enhance_image(request: EnhanceRequest):
         raise HTTPException(status_code=500, detail="API Token missing")
 
     try:
-        # GFPGAN modeli (Daha stabil və etibarlıdır)
-        # Versiya: v1.4
-        output = replicate.run(
-            "tencentarc/gfpgan:92836085e347504f588f0bc2062f613d02086302568f70e1a9134070a2936338",
+        # 1. Müştərini yaradırıq
+        client = replicate.Client(api_token=api_token)
+
+        # 2. Əllə kod yazmaq əvəzinə, modelin ən son versiyasını serverdən soruşuruq
+        # "nightmareai/real-esrgan" bu iş üçün ən stabil modeldir
+        model = client.models.get("nightmareai/real-esrgan")
+        latest_version = model.versions.list()[0] # Ən son versiyanı götürür
+
+        print(f"Using version: {latest_version.id}") # Logda hansı versiyanı tapdığını görəcəyik
+
+        # 3. Həmin tapılan versiya ilə işə salırıq
+        output = client.run(
+            f"nightmareai/real-esrgan:{latest_version.id}",
             input={
-                "img": request.image_url, # Diqqət: Bu model 'image' yox, 'img' qəbul edir
+                "image": request.image_url,
                 "scale": 2,
-                "version": "v1.4"
+                "face_enhance": True
             }
         )
         
         return {"enhanced_image_url": output}
 
     except replicate.exceptions.ReplicateError as e:
-        # Əgər həqiqətən ödəniş/limit problemi varsa, burada bilinəcək
         print(f"Replicate Error: {e}")
+        # Xəta mesajını olduğu kimi qaytarırıq ki, dəqiq bilək
         raise HTTPException(status_code=500, detail=f"AI Error: {str(e)}")
         
     except Exception as e:
