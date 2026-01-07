@@ -6,7 +6,6 @@ import os
 
 app = FastAPI()
 
-# Frontend-dən gələn sorğulara icazə veririk
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -14,33 +13,39 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Frontend-dən bu formatda məlumat gözləyirik: {"image_url": "https://..."}
-class EnhanceRequest(BaseModel):
-    image_url: str
+# Artıq şəkil URL-i yox, "prompt" (təsvir) qəbul edirik
+class GenerateRequest(BaseModel):
+    prompt: str
 
 @app.get("/")
 def home():
-    return {"status": "Backend is Ready"}
+    return {"status": "Image Generator Ready"}
 
-@app.post("/api/enhance")
-def enhance_image(request: EnhanceRequest):
+@app.post("/api/generate")
+def generate_image(request: GenerateRequest):
     api_token = os.environ.get("REPLICATE_API_TOKEN")
     if not api_token:
-        raise HTTPException(status_code=500, detail="API Token is missing in Vercel")
+        raise HTTPException(status_code=500, detail="API Token missing")
 
     try:
-        # CodeFormer Modeli (Stabil Versiya)
+        # FLUX.1 [schnell] Modeli - Çox sürətli və keyfiyyətlidir
         output = replicate.run(
-            "sczhou/codeformer:7de2ea26c616d5bf2245ad0d5e24f0ff9a6204578a5c876cf5ef964a3b76756c",
+            "black-forest-labs/flux-schnell",
             input={
-                "image": request.image_url,
-                "upscale": 2,
-                "face_upsample": True,
-                "background_enhance": True
+                "prompt": request.prompt,
+                "go_fast": True,   # Sürətli rejim
+                "megapixels": "1", # Şəkil ölçüsü
+                "num_outputs": 1,
+                "aspect_ratio": "16:9", # Ekran formatı (1:1, 16:9, 9:16 ola bilər)
+                "output_format": "jpg"
             }
         )
-        return {"enhanced_image_url": output}
+        
+        # Flux modeli nəticəni siyahı (list) kimi qaytarır, biz birincini götürürük
+        image_url = output[0]
+        
+        return {"generated_image_url": image_url}
 
     except Exception as e:
-        print(f"Server Xətası: {str(e)}")
+        print(f"Xəta: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
