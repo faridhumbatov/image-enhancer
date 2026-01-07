@@ -18,28 +18,27 @@ class EnhanceRequest(BaseModel):
 
 @app.get("/")
 def home():
-    return {"status": "Server is running"}
+    return {"message": "Server is active"}
 
 @app.post("/api/enhance")
 def enhance_image(request: EnhanceRequest):
-    # Tokeni birbaşa yoxlayırıq
     api_token = os.environ.get("REPLICATE_API_TOKEN")
-    
     if not api_token:
-        raise HTTPException(status_code=500, detail="REPLICATE_API_TOKEN is missing in Vercel settings")
+        raise HTTPException(status_code=500, detail="API Token tapılmadı!")
 
     try:
-        # Replicate müştərisini tokenlə başladırıq
-        client = replicate.Client(api_token=api_token)
-        
-        output = client.run(
+        # Yeni versiyalarda 'image' parametri daha çox istifadə olunur
+        # Və modeli birbaşa ID ilə çağırmaq daha təhlükəsizdir
+        output = replicate.run(
             "xinntao/realsrgan:1b97abc4b3a1a37c37c2a71d798e1e7047f6368d9c669176378e9f2b801a6b0c",
             input={
-                "img": request.image_url,
-                "scale": 2,
+                "image": request.image_url,  # 'img' yerinə 'image' yoxlayın
+                "upscale": 2,               # 'scale' yerinə 'upscale' yoxlayın
                 "face_enhance": True
             }
         )
         return {"enhanced_image_url": output}
     except Exception as e:
+        # Replicate-dən gələn mesajı logda görmək üçün
+        print(f"Replicate Error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
