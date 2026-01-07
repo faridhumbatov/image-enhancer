@@ -17,38 +17,38 @@ app.add_middleware(
 class GenerateRequest(BaseModel):
     prompt: str
 
+# Sizin təqdim etdiyiniz Pollinations API Key
+API_KEY = "sk_4kGgyGCPXHOQs8MK8jPaZCAwG2zFrc7A"
+
 @app.get("/")
 def home():
-    return {"status": "Stealth Proxy Active"}
+    return {"status": "Premium Generator Active"}
 
 @app.post("/api/generate")
 def generate_image(request: GenerateRequest):
     try:
-        clean_prompt = urllib.parse.quote(request.prompt)
+        # 1. URL Hazırlığı
         seed = random.randint(1, 1000000)
+        # width=1024, height=1024 (Premium-da kvadrat şəkil daha keyfiyyətli olur)
+        api_url = f"https://image.pollinations.ai/prompt/{request.prompt}?model=flux&width=1024&height=1024&seed={seed}&nologo=true"
         
-        # URL
-        image_url = f"https://pollinations.ai/p/{clean_prompt}?width=1280&height=720&seed={seed}&model=flux&nologo=true"
-        
-        # BU HİSSƏ VACİBDİR: Özümüzü real brauzer kimi göstəririk
+        print(f"Sorğu göndərilir: {api_url}")
+
+        # 2. Header-ə API Key əlavə edirik (Authorization: Bearer ...)
         headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8"
+            "Authorization": f"Bearer {API_KEY}",
+            "User-Agent": "MyPremiumApp/1.0"
         }
 
-        # Şəkli yükləyirik (Timeout artırırıq ki, gözləsin)
-        response = requests.get(image_url, headers=headers, timeout=30)
+        # 3. Sorğunu göndəririk
+        response = requests.get(api_url, headers=headers, timeout=60)
         
+        # 4. Yoxlayırıq
         if response.status_code != 200:
-            print(f"Xəta kodu: {response.status_code}")
-            raise HTTPException(status_code=500, detail="Pollinations blokladı")
+            print(f"Xəta kodu: {response.status_code} - {response.text}")
+            raise HTTPException(status_code=500, detail=f"API Xətası: {response.status_code}")
 
-        # Gələn datanın həqiqətən şəkil olub-olmadığını yoxlayırıq
-        content_type = response.headers.get("Content-Type", "")
-        if "image" not in content_type:
-            print(f"Gələn data şəkil deyil: {response.text[:100]}")
-            raise HTTPException(status_code=500, detail="Server şəkil göndərmədi")
-
+        # 5. Şəkli (binary data) istifadəçiyə qaytarırıq
         return Response(content=response.content, media_type="image/jpeg")
 
     except Exception as e:
