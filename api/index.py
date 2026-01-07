@@ -6,7 +6,6 @@ import os
 
 app = FastAPI()
 
-# Frontend-in API-a qoşula bilməsi üçün icazələr
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -19,39 +18,33 @@ class EnhanceRequest(BaseModel):
 
 @app.get("/")
 def home():
-    return {"status": "Server is running perfectly!"}
+    return {"status": "Active"}
 
 @app.post("/api/enhance")
 def enhance_image(request: EnhanceRequest):
-    # 1. Tokeni yoxlayırıq
     api_token = os.environ.get("REPLICATE_API_TOKEN")
     if not api_token:
-        print("Xəta: Token tapılmadı")
-        raise HTTPException(status_code=500, detail="REPLICATE_API_TOKEN is missing")
+        raise HTTPException(status_code=500, detail="API Token missing")
 
     try:
-        # 2. Modeli işə salırıq
-        # "nightmareai/real-esrgan" modeli daha stabildir.
-        # Versiya ID-si: 42fed1c4... (Ən son stabil versiya)
+        # GFPGAN modeli (Daha stabil və etibarlıdır)
+        # Versiya: v1.4
         output = replicate.run(
-            "nightmareai/real-esrgan:42fed1c4974146d4d2414e2be2c5277c7fcf05fcc3a73ab415c722d3790c507",
+            "tencentarc/gfpgan:92836085e347504f588f0bc2062f613d02086302568f70e1a9134070a2936338",
             input={
-                "image": request.image_url,
-                "scale": 2,            # Neçə dəfə böyütmək (maksimum 10 ola bilər)
-                "face_enhance": True   # Üzləri düzəltmək
+                "img": request.image_url, # Diqqət: Bu model 'image' yox, 'img' qəbul edir
+                "scale": 2,
+                "version": "v1.4"
             }
         )
         
-        # Logda nəticəni görmək üçün
-        print(f"Success! Output: {output}")
         return {"enhanced_image_url": output}
 
     except replicate.exceptions.ReplicateError as e:
-        # Replicate-dən gələn xüsusi xətalar (məsələn: Balans bitibsə)
-        print(f"Replicate Xətası: {str(e)}")
-        raise HTTPException(status_code=402, detail=f"AI Xətası: {str(e)}")
+        # Əgər həqiqətən ödəniş/limit problemi varsa, burada bilinəcək
+        print(f"Replicate Error: {e}")
+        raise HTTPException(status_code=500, detail=f"AI Error: {str(e)}")
         
     except Exception as e:
-        # Digər ümumi xətalar
-        print(f"Ümumi Xəta: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Server Xətası: {str(e)}")
+        print(f"General Error: {e}")
+        raise HTTPException(status_code=500, detail=f"Server Error: {str(e)}")
