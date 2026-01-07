@@ -4,17 +4,11 @@ from pydantic import BaseModel
 import replicate
 import os
 
-@app.get("/")
-def read_root():
-    return {"status": "Server is running successfully!"}
-
 app = FastAPI()
 
-# CORS icazələri (Front-end-in API-ya daxil olması üçün mütləqdir)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], 
-    allow_credentials=True,
+    allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -22,17 +16,23 @@ app.add_middleware(
 class EnhanceRequest(BaseModel):
     image_url: str
 
+@app.get("/")
+def home():
+    return {"status": "Server is running"}
+
 @app.post("/api/enhance")
 def enhance_image(request: EnhanceRequest):
-    # 1. API Token yoxlanışı
+    # Tokeni birbaşa yoxlayırıq
     api_token = os.environ.get("REPLICATE_API_TOKEN")
+    
     if not api_token:
-        return {"error": "REPLICATE_API_TOKEN tapılmadı. Vercel Settings-də quraşdırın."}
+        raise HTTPException(status_code=500, detail="REPLICATE_API_TOKEN is missing in Vercel settings")
 
     try:
-        # 2. Replicate modelini çağırırıq
-        # Diqqət: Realsrgan bəzən gecikə bilər, model versiyasının doğruluğuna baxın
-        output = replicate.run(
+        # Replicate müştərisini tokenlə başladırıq
+        client = replicate.Client(api_token=api_token)
+        
+        output = client.run(
             "xinntao/realsrgan:1b97abc4b3a1a37c37c2a71d798e1e7047f6368d9c669176378e9f2b801a6b0c",
             input={
                 "img": request.image_url,
@@ -41,8 +41,5 @@ def enhance_image(request: EnhanceRequest):
             }
         )
         return {"enhanced_image_url": output}
-    
     except Exception as e:
-        # Xətanı terminalda görmək üçün
-        print(f"Xəta baş verdi: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
