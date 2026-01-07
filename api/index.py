@@ -18,40 +18,36 @@ class EnhanceRequest(BaseModel):
 
 @app.get("/")
 def home():
-    return {"status": "Server running with Dynamic Versioning"}
+    return {"status": "CodeFormer Model Ready"}
 
 @app.post("/api/enhance")
 def enhance_image(request: EnhanceRequest):
+    # 1. API Token yoxlanışı
     api_token = os.environ.get("REPLICATE_API_TOKEN")
     if not api_token:
+        print("Error: Token not found")
         raise HTTPException(status_code=500, detail="API Token missing")
 
     try:
-        # 1. Müştərini yaradırıq
-        client = replicate.Client(api_token=api_token)
-
-        # 2. Əllə kod yazmaq əvəzinə, modelin ən son versiyasını serverdən soruşuruq
-        # "nightmareai/real-esrgan" bu iş üçün ən stabil modeldir
-        model = client.models.get("nightmareai/real-esrgan")
-        latest_version = model.versions.list()[0] # Ən son versiyanı götürür
-
-        print(f"Using version: {latest_version.id}") # Logda hansı versiyanı tapdığını görəcəyik
-
-        # 3. Həmin tapılan versiya ilə işə salırıq
-        output = client.run(
-            f"nightmareai/real-esrgan:{latest_version.id}",
+        # 2. CodeFormer Modelini işə salırıq
+        # Bu model üzləri düzəltmək və keyfiyyəti artırmaqda ən yaxşısıdır.
+        # Stabil Versiya Hash: 7de2ea26...
+        output = replicate.run(
+            "sczhou/codeformer:7de2ea26c616d5bf2245ad0d5e24f0ff9a6204578a5c876cf5ef964a3b76756c",
             input={
                 "image": request.image_url,
-                "scale": 2,
-                "face_enhance": True
+                "upscale": 2,             # Şəkli 2 dəfə böyüt
+                "face_upsample": True,    # Üzləri xüsusi bərpa et
+                "background_enhance": True, # Arxa fonu da təmizlə
+                "codeformer_fidelity": 0.7 # 0 = maksimum bərpa, 1 = orijinala sadiq qalmaq
             }
         )
         
+        print(f"Success: {output}")
         return {"enhanced_image_url": output}
 
     except replicate.exceptions.ReplicateError as e:
         print(f"Replicate Error: {e}")
-        # Xəta mesajını olduğu kimi qaytarırıq ki, dəqiq bilək
         raise HTTPException(status_code=500, detail=f"AI Error: {str(e)}")
         
     except Exception as e:
