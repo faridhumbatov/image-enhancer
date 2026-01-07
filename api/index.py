@@ -17,38 +17,48 @@ app.add_middleware(
 class GenerateRequest(BaseModel):
     prompt: str
 
-# Sizin təqdim etdiyiniz Pollinations API Key
+# Sizin API Key
 API_KEY = "sk_4kGgyGCPXHOQs8MK8jPaZCAwG2zFrc7A"
 
 @app.get("/")
 def home():
-    return {"status": "Premium Generator Active"}
+    return {"status": "Premium Generator (URL Auth) Active"}
 
 @app.post("/api/generate")
 def generate_image(request: GenerateRequest):
     try:
-        # 1. URL Hazırlığı
         seed = random.randint(1, 1000000)
-        # width=1024, height=1024 (Premium-da kvadrat şəkil daha keyfiyyətli olur)
-        api_url = f"https://image.pollinations.ai/prompt/{request.prompt}?model=flux&width=1024&height=1024&seed={seed}&nologo=true"
         
-        print(f"Sorğu göndərilir: {api_url}")
+        # 1. Prompt-u kodlaşdırırıq (boşluqlar və simvollar üçün)
+        clean_prompt = urllib.parse.quote(request.prompt)
 
-        # 2. Header-ə API Key əlavə edirik (Authorization: Bearer ...)
+        # 2. DÜZƏLİŞ: API Key-i birbaşa URL-ə 'token' parametri kimi əlavə edirik
+        # Bu üsul Pollinations-da daha etibarlıdır
+        api_url = (
+            f"https://image.pollinations.ai/prompt/{clean_prompt}"
+            f"?model=flux"
+            f"&width=1024"
+            f"&height=1024"
+            f"&seed={seed}"
+            f"&nologo=true"
+            f"&token={API_KEY}"  # <--- ƏSAS DƏYİŞİKLİK BURADADIR
+        )
+        
+        print(f"Sorğu URL: {api_url}") # Logda yoxlamaq üçün (Real layihədə gizlətmək lazımdır)
+
+        # 3. Brauzer kimi görünmək üçün sadə başlıq
         headers = {
-            "Authorization": f"Bearer {API_KEY}",
-            "User-Agent": "MyPremiumApp/1.0"
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
         }
 
-        # 3. Sorğunu göndəririk
+        # 4. Sorğunu göndəririk
         response = requests.get(api_url, headers=headers, timeout=60)
         
-        # 4. Yoxlayırıq
         if response.status_code != 200:
-            print(f"Xəta kodu: {response.status_code} - {response.text}")
-            raise HTTPException(status_code=500, detail=f"API Xətası: {response.status_code}")
+            print(f"Server Xətası: {response.status_code}")
+            # Əgər şəkil gəlmirsə, xəta mətnini oxuyaq
+            raise HTTPException(status_code=500, detail=f"Xəta: {response.text[:100]}")
 
-        # 5. Şəkli (binary data) istifadəçiyə qaytarırıq
         return Response(content=response.content, media_type="image/jpeg")
 
     except Exception as e:
