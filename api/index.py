@@ -27,18 +27,19 @@ def enhance_image(request: EnhanceRequest):
         raise HTTPException(status_code=500, detail="API Token tapılmadı!")
 
     try:
-        # Yeni versiyalarda 'image' parametri daha çox istifadə olunur
-        # Və modeli birbaşa ID ilə çağırmaq daha təhlükəsizdir
-        output = replicate.run(
-            "xinntao/realsrgan:1b97abc4b3a1a37c37c2a71d798e1e7047f6368d9c669176378e9f2b801a6b0c",
+        client = replicate.Client(api_token=api_token)
+        
+        # Versiya ID-si yerinə birbaşa model adından istifadə edirik
+        # Bu üsul həmişə ən son işlək versiyanı seçir
+        output = client.run(
+            "xinntao/real-esrgan",
             input={
-                "image": request.image_url,  # 'img' yerinə 'image' yoxlayın
-                "upscale": 2,               # 'scale' yerinə 'upscale' yoxlayın
+                "image": request.image_url,
+                "upscale": 2,
                 "face_enhance": True
             }
         )
         return {"enhanced_image_url": output}
     except Exception as e:
-        # Replicate-dən gələn mesajı logda görmək üçün
         print(f"Replicate Error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
