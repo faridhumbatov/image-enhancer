@@ -4,6 +4,10 @@ from pydantic import BaseModel
 import replicate
 import os
 
+@app.get("/")
+def read_root():
+    return {"status": "Server is running successfully!"}
+
 app = FastAPI()
 
 # CORS icazələri (Front-end-in API-ya daxil olması üçün mütləqdir)
