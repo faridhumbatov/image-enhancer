@@ -1,9 +1,17 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import replicate
 import os
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], # Real layihədə bura öz saytınızın adını yazın
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 class EnhanceRequest(BaseModel):
     image_url: str
