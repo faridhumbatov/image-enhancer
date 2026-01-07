@@ -19,27 +19,38 @@ class GenerateRequest(BaseModel):
 
 @app.get("/")
 def home():
-    return {"status": "Proxy Generator Ready"}
+    return {"status": "Stealth Proxy Active"}
 
 @app.post("/api/generate")
 def generate_image(request: GenerateRequest):
     try:
-        # 1. URL-i hazırlayırıq
         clean_prompt = urllib.parse.quote(request.prompt)
         seed = random.randint(1, 1000000)
         
+        # URL
         image_url = f"https://pollinations.ai/p/{clean_prompt}?width=1280&height=720&seed={seed}&model=flux&nologo=true"
         
-        # 2. Şəkli Server tərəfində yükləyirik (Brauzer qarışmır)
-        # Bu hissə 'requests' kitabxanası ilə işləyir
-        response = requests.get(image_url)
+        # BU HİSSƏ VACİBDİR: Özümüzü real brauzer kimi göstəririk
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8"
+        }
+
+        # Şəkli yükləyirik (Timeout artırırıq ki, gözləsin)
+        response = requests.get(image_url, headers=headers, timeout=30)
         
         if response.status_code != 200:
-            raise HTTPException(status_code=500, detail="Pollinations cavab vermədi")
+            print(f"Xəta kodu: {response.status_code}")
+            raise HTTPException(status_code=500, detail="Pollinations blokladı")
 
-        # 3. Şəkli birbaşa fayl kimi (bytes) istifadəçiyə göndəririk
+        # Gələn datanın həqiqətən şəkil olub-olmadığını yoxlayırıq
+        content_type = response.headers.get("Content-Type", "")
+        if "image" not in content_type:
+            print(f"Gələn data şəkil deyil: {response.text[:100]}")
+            raise HTTPException(status_code=500, detail="Server şəkil göndərmədi")
+
         return Response(content=response.content, media_type="image/jpeg")
 
     except Exception as e:
-        print(f"Xəta: {str(e)}")
+        print(f"Kritik Xəta: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
